@@ -19,11 +19,9 @@ def evaluate():
     imgs, labels = core.load_dataset_2(SOURCE_PATH)
     print(f"Loaded {len(imgs)} samples in {time.time() - t0:.2f}s")
 
-    # ---------------- MODEL CONFIG ----------------
     NUM_CLASSES = 100
     C_OUT = 16
 
-    # ---------------- LOAD MODEL ----------------
     c1_w = core.Tensor([C_OUT, 3, 3, 3])
     c1_b = core.Tensor([C_OUT])
     l1_w = core.Tensor([NUM_CLASSES, C_OUT * 16 * 16])
@@ -37,7 +35,6 @@ def evaluate():
         l1_b=l1_b
     )
 
-    # ---------------- BUFFERS ----------------
     act_conv = core.Tensor([1, C_OUT, 32, 32])
     act_pool = core.Tensor([1, C_OUT, 16, 16])
     pool_mask = core.Tensor([1, C_OUT, 32, 32])
@@ -47,7 +44,6 @@ def evaluate():
     correct = 0
     total = len(imgs)
 
-    # Per-class stats (optional but useful)
     class_correct = [0] * NUM_CLASSES
     class_total = [0] * NUM_CLASSES
 
@@ -59,7 +55,6 @@ def evaluate():
         for t in [act_conv, act_pool, act_flat, act_logits, img]:
             t.zero_grad()
 
-        # Forward only
         core.conv2d_fwd(img, c1_w, c1_b, act_conv, 1, 1)
         core.relu_fwd(act_conv)
         core.maxpool_fwd(act_conv, act_pool, pool_mask, 2, 2)
@@ -89,3 +84,4 @@ def evaluate():
 
 if __name__ == "__main__":
     evaluate()
+
