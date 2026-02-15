@@ -12,7 +12,7 @@ Run python3 eval_dataset_1.py
 
 It will ask for path to the dataset :  ./data/data_1/data_1
 
-It will aslo for the saved model weights :     ./checkpoints/model_saved.pkl
+It will aslo ask for the saved model weights :     ./checkpoints/model_saved.pkl
 
 
 ### INSTRUCTIONS TO RUN TRAINING FOR DATASET-2 (CIFAR-100)
@@ -29,10 +29,11 @@ Run python3 eval_dataset_2.py
 
 It will ask for path to the dataset :  ./data/data_2/data_2
 
-It will aslo for the saved model weights :     ./checkpoints/model_dataset_2.pkl
+It will aslo ask for the saved model weights :     ./checkpoints/model_dataset_2.pkl
 
 To get plots for dataset 2 
 
 Run python3 plot_dataset_2.py
 
 Please put the datasets in the main project directory which is the same directory as this readme file
+
