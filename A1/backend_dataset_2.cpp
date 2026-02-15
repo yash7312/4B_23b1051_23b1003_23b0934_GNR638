@@ -12,8 +12,6 @@
 namespace py = pybind11;
 namespace fs = std::filesystem;
 
-/* ===================== Tensor ===================== */
-
 class Tensor {
 public:
     std::vector<float> vec_data;
@@ -34,12 +32,9 @@ public:
     }
 };
 
-/* ===================== Ops ===================== */
-
 class Ops {
 public:
-
-/* ---------- DATASET 1 (0–9 folders) ---------- */
+ 
 static py::tuple load_dataset_1(const std::string& base_path) {
     std::vector<std::pair<std::string,int>> files;
 
@@ -53,7 +48,6 @@ static py::tuple load_dataset_1(const std::string& base_path) {
     return load_images(files);
 }
 
-/* ---------- DATASET 2 (class folders) ---------- */
 static py::tuple load_dataset_2(const std::string& base_path) {
     std::vector<std::string> class_names;
 
@@ -77,7 +71,6 @@ static py::tuple load_dataset_2(const std::string& base_path) {
     return load_images(files);
 }
 
-/* ---------- Shared image loader ---------- */
 static py::tuple load_images(const std::vector<std::pair<std::string,int>>& files) {
     std::vector<Tensor*> tensors(files.size());
     std::vector<int> labels(files.size());
@@ -111,12 +104,10 @@ static py::tuple load_images(const std::vector<std::pair<std::string,int>>& file
     return py::make_tuple(tensors, labels);
 }
 
-/* ---------- Flatten ---------- */
 static void flatten(const Tensor& in, Tensor& out) {
     std::copy(in.vec_data.begin(), in.vec_data.end(), out.vec_data.begin());
 }
 
-/* ---------- Softmax + CE ---------- */
 static float softmax_cross_entropy_grad(Tensor& logits, int target) {
     int n = logits.vec_data.size();
     float maxv = *std::max_element(logits.vec_data.begin(), logits.vec_data.end());
@@ -135,7 +126,6 @@ static float softmax_cross_entropy_grad(Tensor& logits, int target) {
     return -std::log(std::max(logits.vec_data[target], 1e-12f));
 }
 
-/* ---------- Conv ---------- */
 static void conv2d_fwd(const Tensor& in, const Tensor& w, const Tensor& b,
                        Tensor& out, int s, int p) {
     int IC = in.shape[1], IH = in.shape[2], IW = in.shape[3];
@@ -191,7 +181,6 @@ static void conv2d_bwd(Tensor& in, Tensor& w, Tensor& b,
             }
 }
 
-/* ---------- Linear ---------- */
 static void linear_fwd(const Tensor& in, const Tensor& w,
                        const Tensor& b, Tensor& out) {
     int InF=in.vec_data.size(), OutF=w.shape[0];
@@ -217,7 +206,6 @@ static void linear_bwd(Tensor& in, Tensor& w, Tensor& b,
     }
 }
 
-/* ---------- MaxPool (correct backward) ---------- */
 static void maxpool_fwd(const Tensor& in, Tensor& out,
                         Tensor& mask, int k, int s) {
     int C=in.shape[1], IH=in.shape[2], IW=in.shape[3];
@@ -271,8 +259,6 @@ static void maxpool_bwd(const Tensor& gout, Tensor& gin,
             }
 }
 
-
-/* ---------- ReLU ---------- */
 static void relu_fwd(Tensor& t) {
     for (float& v:t.vec_data) if(v<0)v=0;
 }
@@ -282,7 +268,6 @@ static void relu_bwd(const Tensor& out, Tensor& grad) {
         if(out.vec_data[i]<=0) grad.vec_grad[i]=0;
 }
 
-/* ---------- SGD ---------- */
 static void sgd_momentum_step(Tensor& p,float lr,float m,float wd){
     for(size_t i=0;i<p.vec_data.size();++i){
         float g=p.vec_grad[i]+wd*p.vec_data[i];
@@ -291,8 +276,6 @@ static void sgd_momentum_step(Tensor& p,float lr,float m,float wd){
     }
 }
 };
-
-/* ===================== PYBIND ===================== */
 
 PYBIND11_MODULE(custom_core_dataset_2, m) {
     py::class_<Tensor>(m,"Tensor")
@@ -316,3 +299,4 @@ PYBIND11_MODULE(custom_core_dataset_2, m) {
     m.def("relu_bwd",&Ops::relu_bwd);
     m.def("sgd_momentum_step",&Ops::sgd_momentum_step);
 }
+
