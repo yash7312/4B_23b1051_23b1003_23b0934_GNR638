@@ -38,7 +38,7 @@ public:
 
 class Ops {
 public:
-    // ---------------- DATASET ----------------
+    // DATASET 
     static py::tuple load_dataset_1(std::string base_path) {
         std::vector<std::pair<std::string, int>> files;
         for (int label = 0; label < 10; ++label) {
@@ -78,12 +78,12 @@ public:
         return py::make_tuple(tensors, labels);
     }
 
-    // ---------------- UTILS ----------------
+    // FLATTEN
     static void flatten(const Tensor& in, Tensor& out) {
         std::copy(in.vec_data.begin(), in.vec_data.end(), out.vec_data.begin());
     }
 
-    // ---------------- LOSS ----------------
+    //  LOSS 
     static float softmax_cross_entropy_grad(Tensor& logits, int target) {
         int n = logits.vec_data.size();
         std::vector<float> probs(n);
@@ -101,7 +101,7 @@ public:
         return -std::log(std::max(probs[target], 1e-12f));
     }
 
-    // ---------------- CONV ----------------
+    // CONV 
     static void conv2d_fwd(const Tensor& in, const Tensor& w, const Tensor& b,
                            Tensor& out, int s, int p) {
         int IC = in.shape[1], IH = in.shape[2], IW = in.shape[3];
@@ -157,7 +157,7 @@ public:
                 }
     }
 
-    // ---------------- LINEAR ----------------
+    // LINEAR 
     static void linear_fwd(const Tensor& in, const Tensor& w, const Tensor& b, Tensor& out) {
         int InF = in.vec_data.size();
         int OutF = w.shape[0];
@@ -183,7 +183,7 @@ public:
         }
     }
 
-    // ---------------- MAXPOOL (ARGMAX) ----------------
+    // MAXPOOL
     static void maxpool_fwd(const Tensor& in, Tensor& out, Tensor& mask, int k, int s) {
         int C = in.shape[1], IH = in.shape[2], IW = in.shape[3];
         int OH = out.shape[2], OW = out.shape[3];
@@ -216,7 +216,7 @@ public:
                 grad_in.vec_grad[i] += grad_out.vec_grad[i];
     }
 
-    // ---------------- RELU ----------------
+    // RELU 
     static void relu_fwd(Tensor& t) {
         for (float& v : t.vec_data) if (v < 0) v = 0;
     }
@@ -226,7 +226,7 @@ public:
             if (out.vec_data[i] <= 0) grad.vec_grad[i] = 0;
     }
 
-    // ---------------- OPT ----------------
+    // OPTIMIZER
     static void sgd_momentum_step(Tensor& p, float lr, float m, float wd) {
         for (size_t i = 0; i < p.vec_data.size(); ++i) {
             float g = p.vec_grad[i] + wd * p.vec_data[i];
@@ -258,3 +258,4 @@ PYBIND11_MODULE(custom_core_dataset_1, m) {
     m.def("relu_bwd", &Ops::relu_bwd);
     m.def("sgd_momentum_step", &Ops::sgd_momentum_step);
 }
+
