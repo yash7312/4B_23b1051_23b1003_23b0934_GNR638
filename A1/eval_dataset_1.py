@@ -21,7 +21,6 @@ def evaluate():
     print("Loading dataset...")
     imgs, labels = core.load_dataset(SOURCE_PATH)
 
-    # ---- model definition (MUST MATCH TRAINING) ----
     C_OUT = 8
 
     c1_w = core.Tensor([C_OUT, 3, 3, 3])
@@ -37,7 +36,6 @@ def evaluate():
         l1_b=l1_b
     )
 
-    # ---- activations ----
     act_conv = core.Tensor([1, C_OUT, 32, 32])
     act_pool = core.Tensor([1, C_OUT, 16, 16])
     pool_mask = core.Tensor([1, C_OUT, 32, 32])
@@ -47,7 +45,6 @@ def evaluate():
     correct = 0
     total = len(imgs)
 
-    # optional: per-class accuracy
     class_correct = [0] * 10
     class_total = [0] * 10
 
@@ -87,3 +84,4 @@ def evaluate():
 
 if __name__ == "__main__":
     evaluate()
+
