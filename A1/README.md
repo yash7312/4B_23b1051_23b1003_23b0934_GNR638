@@ -34,3 +34,5 @@ It will aslo for the saved model weights :     ./checkpoints/model_dataset_2.pkl
 To get plots for dataset 2 
 
 Run python3 plot_dataset_2.py
+
+Please put the datasets in the main project directory which is the same directory as this readme file
