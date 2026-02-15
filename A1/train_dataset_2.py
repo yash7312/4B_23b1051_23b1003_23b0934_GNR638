@@ -3,7 +3,6 @@ import os, time, math, random, pickle
 
 random.seed(42)
 
-# ---------------- MODEL STATS ----------------
 def print_model_stats(C_OUT, NUM_CLASSES):
     conv_params = C_OUT * 3 * 3 * 3 + C_OUT
     fc_params = NUM_CLASSES * (C_OUT * 16 * 16) + NUM_CLASSES
@@ -15,7 +14,6 @@ def print_model_stats(C_OUT, NUM_CLASSES):
 
     print(f"Params: {total_params}, MACs: {total_macs}, FLOPs: {2*total_macs}")
 
-# ---------------- SAVE ----------------
 def save_pickle(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -23,7 +21,6 @@ def save_pickle(path, obj):
         f.flush()
         os.fsync(f.fileno())
 
-# ---------------- TRAIN ----------------
 def train():
     SOURCE_PATH = os.path.abspath(input("Give the path to dataset: "))
     print('Loading Data...')
@@ -44,7 +41,6 @@ def train():
 
     print_model_stats(C_OUT, NUM_CLASSES)
 
-    # Parameters
     c1_w = core.Tensor([C_OUT, 3, 3, 3])
     c1_b = core.Tensor([C_OUT])
     l1_w = core.Tensor([NUM_CLASSES, C_OUT * 16 * 16])
@@ -105,7 +101,6 @@ def train():
         print(f"Epoch {ep+1} | Loss {avg_loss:.4f} | Acc {acc:.2%}")
         LR *= 0.9
 
-    # Save weights
     save_pickle("checkpoints/model_dataset_2.pkl", {
         "c1_w": list(c1_w.data),
         "c1_b": list(c1_b.data),
@@ -113,7 +108,6 @@ def train():
         "l1_b": list(l1_b.data),
     })
 
-    # Save logs
     save_pickle("checkpoints/train_logs_dataset_2.pkl", {
         "losses": epoch_losses,
         "accs": epoch_accs
@@ -124,3 +118,4 @@ def train():
 
 if __name__ == "__main__":
     train()
+
