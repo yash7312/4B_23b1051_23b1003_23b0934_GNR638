@@ -139,17 +139,15 @@ def plot_metrics(losses, accs, save_dir="plots"):
     plt.close()
 
 def print_model_stats(C_OUT, NUM_CLASSES):
-    # -------- Parameters --------
+    
     conv_params = C_OUT * 3 * 3 * 3 + C_OUT
     fc_params = NUM_CLASSES * (C_OUT * 16 * 16) + NUM_CLASSES
     total_params = conv_params + fc_params
 
-    # -------- MACs --------
     conv_macs = C_OUT * 32 * 32 * (3 * 3 * 3)
     fc_macs = NUM_CLASSES * (C_OUT * 16 * 16)
     total_macs = conv_macs + fc_macs
 
-    # -------- FLOPs --------
     total_flops = 2 * total_macs
 
     print("Model Statistics")
@@ -167,4 +165,5 @@ def print_model_stats(C_OUT, NUM_CLASSES):
 
 if __name__ == "__main__":
     train()
+
 
