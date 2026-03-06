@@ -14,14 +14,25 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import os
+import random
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_seed(42)
 
 models_to_run = ["resnet50", "inception_v3", "densenet121"]
 
 DATA_PATH = "train_data/train_data"
 NUM_CLASSES = 30
-EPOCHS = 20
+EPOCHS = 30
 BATCH_SIZE = 32
 LR = 1e-3
 
@@ -84,9 +95,9 @@ def get_dataloaders(model):
 
     train_ds, val_ds = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42))
 
-    train_loader = DataLoader( train_ds, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = DataLoader( train_ds, batch_size=BATCH_SIZE, shuffle=True, generator=torch.Generator().manual_seed(42))
 
-    val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE)
+    val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
     return train_loader, val_loader
 
@@ -154,10 +165,6 @@ def evaluate(model, loader, epoch):
 
     return correct / total
 
-
-# -------------------------
-# Confusion Matrix
-# -------------------------
 def compute_confusion(model, loader, model_name):
 
     model.eval()
@@ -192,10 +199,6 @@ def compute_confusion(model, loader, model_name):
 
     plt.close()
 
-
-# -------------------------
-# Feature Extraction
-# -------------------------
 def extract_features(model, loader):
 
     model.eval()
@@ -224,10 +227,6 @@ def extract_features(model, loader):
 
     return np.concatenate(features), np.concatenate(labels_list)
 
-
-# -------------------------
-# PCA + TSNE Visualization
-# -------------------------
 def visualize_embeddings(features, labels, model_name):
 
     pca = PCA(n_components=2)
