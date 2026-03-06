@@ -25,14 +25,15 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 set_seed(42)
 
-models_to_run = ["resnet50", "inception_v3", "densenet121"]
+models_to_run = ["resnet50", "inception_v3", "efficientnet_b0"]
 
 DATA_PATH = "train_data/train_data"
 NUM_CLASSES = 30
-EPOCHS = 30
+EPOCHS = 20
 BATCH_SIZE = 32
 LR = 1e-3
 
@@ -51,7 +52,7 @@ def get_linear_probe_model(model_name):
         in_features = model.fc.in_features
         model.fc = nn.Linear(in_features, NUM_CLASSES)
 
-    elif model_name == "densenet121":
+    elif model_name == "efficientnet_b0":
         in_features = model.classifier.in_features
         model.classifier = nn.Linear(in_features, NUM_CLASSES)
 
@@ -195,7 +196,7 @@ def compute_confusion(model, loader, model_name):
 
     plt.title(f"{model_name} Confusion Matrix")
 
-    plt.savefig(f"{model_name}_confusion_matrix.png")
+    plt.savefig(f"{model_name}_linear_probe_confusion_matrix.png")
 
     plt.close()
 
@@ -209,19 +210,14 @@ def extract_features(model, loader):
     with torch.no_grad():
 
         for images, labels in loader:
-
             images = images.to(device)
-
             if hasattr(model, "forward_features"):
                 feats = model.forward_features(images)
             else:
                 feats = model(images)
-
             if isinstance(feats, tuple):
                 feats = feats[0]
-
             feats = feats.reshape(feats.size(0), -1)
-
             features.append(feats.cpu().numpy())
             labels_list.append(labels.numpy())
 
@@ -230,32 +226,19 @@ def extract_features(model, loader):
 def visualize_embeddings(features, labels, model_name):
 
     pca = PCA(n_components=2)
-
     reduced_pca = pca.fit_transform(features)
-
     plt.figure()
-
     plt.scatter(reduced_pca[:,0], reduced_pca[:,1], c=labels, cmap="tab20", s=5)
-
     plt.title(f"{model_name} PCA")
-
-    plt.savefig(f"{model_name}_pca.png")
-
+    plt.savefig(f"{model_name}_linear_probe_pca.png")
     plt.close()
 
-
     tsne = TSNE(n_components=2, perplexity=30, random_state=42)
-
     reduced_tsne = tsne.fit_transform(features)
-
     plt.figure()
-
     plt.scatter(reduced_tsne[:,0], reduced_tsne[:,1], c=labels, cmap="tab20", s=5)
-
     plt.title(f"{model_name} t-SNE")
-
-    plt.savefig(f"{model_name}_tsne.png")
-
+    plt.savefig(f"{model_name}_linear_probe_tsne.png")
     plt.close()
 
 
@@ -298,7 +281,7 @@ for model_name in models_to_run:
     plt.plot(val_acc_history, label="Validation")
     plt.legend()
     plt.title(f"{model_name} Accuracy Curve")
-    plt.savefig(f"{model_name}_accuracy_curve.png")
+    plt.savefig(f"{model_name}_linear_probe_accuracy_curve.png")
     plt.close()
 
     compute_confusion(model, val_loader, model_name)
