@@ -1,0 +1,17 @@
+Results for efficientnet_b0:
+  Relative Drop (Delta): 0.2692
+  Regime 100% | Val Acc: 0.929 | Train-Val Gap: 0.047
+  Regime  20% | Val Acc: 0.875 | Train-Val Gap: 0.092
+  Regime   5% | Val Acc: 0.679 | Train-Val Gap: 0.310
+
+Results for inception_v3:
+  Relative Drop (Delta): 0.3668
+  Regime 100% | Val Acc: 0.904 | Train-Val Gap: 0.067
+  Regime  20% | Val Acc: 0.773 | Train-Val Gap: 0.181
+  Regime   5% | Val Acc: 0.573 | Train-Val Gap: 0.327
+
+Results for resnet50:
+  Relative Drop (Delta): 0.1971
+  Regime 100% | Val Acc: 0.936 | Train-Val Gap: 0.047
+  Regime  20% | Val Acc: 0.863 | Train-Val Gap: 0.120
+  Regime   5% | Val Acc: 0.751 | Train-Val Gap: 0.249
