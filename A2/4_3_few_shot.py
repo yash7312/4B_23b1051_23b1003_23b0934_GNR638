@@ -10,6 +10,9 @@ from torchvision import datasets
 from torch.utils.data import DataLoader, random_split, Subset
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
+from thop import profile
+import time
+import pandas as pd
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -237,6 +240,35 @@ def run_experiments():
     print_results(results)
     
     return results
+
+# efficiency analysis for bonus
+def compute_efficiency_metrics(model, model_name):
+    """Tracking FLOPs, parameters, and memory usage"""
+    model.eval()
+    input_size = (1, 3, 299, 299) if model_name == "inception_v3" else (1, 3, 224, 224)
+    dummy = torch.randn(input_size).to(device)
+    
+    macs, params = profile(model, inputs=(dummy,), verbose=False)
+    flops = 2 * macs
+    
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    return {
+        "total_params": params,
+        "trainable_params": trainable,
+        "flops": flops,
+        "trainable_ratio": trainable / params
+    }
+
+def compute_sample_efficiency(results, model_name):
+    """Calculate accuracy per training sample"""
+    metrics = []
+    for fraction in DATA_REGIMES:
+        samples_used = int(fraction * 0.8 * 21000)  # Approximate dataset size
+        val_acc = results[model_name][fraction]["val"]
+        efficiency = val_acc / samples_used * 10000  # Normalized
+        metrics.append((fraction, samples_used, val_acc, efficiency))
+    return metrics
 
 if __name__ == "__main__":
     results = run_experiments()
