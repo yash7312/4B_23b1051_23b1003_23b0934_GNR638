@@ -444,5 +444,66 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
     overfit_df.to_csv(f"{base_dir}/overfitting_analysis/overfitting_metrics.csv", index=False)
     print(f"Saved overfitting analysis to {base_dir}/overfitting_analysis/overfitting_metrics.csv")
     
+    with open(f"{base_dir}/comprehensive_results.txt", 'w') as f:
+        f.write("="*80 + "\n")
+        f.write("FEW-SHOT LEARNING ANALYSIS - COMPREHENSIVE RESULTS\n")
+        f.write("="*80 + "\n\n")
+        
+        # Model Efficiency Summary
+        f.write("MODEL EFFICIENCY METRICS\n")
+        f.write("-"*80 + "\n")
+        for model_name in MODELS:
+            metrics = efficiency_results[model_name]
+            f.write(f"\n{model_name}:\n")
+            f.write(f"  Total Parameters: {metrics['total_params']:,}\n")
+            f.write(f"  Trainable Parameters: {metrics['trainable_params']:,}\n")
+            f.write(f"  FLOPs: {metrics['flops']:,.0f}\n")
+            f.write(f"  Trainable Ratio: {metrics['trainable_ratio']:.4f}\n")
+        
+        # Accuracy Results
+        f.write("\n\n" + "="*80 + "\n")
+        f.write("ACCURACY RESULTS BY DATA REGIME\n")
+        f.write("="*80 + "\n")
+        for model_name in MODELS:
+            delta = compute_relative_drop(results, model_name)
+            f.write(f"\n{model_name}:\n")
+            f.write(f"  Relative Drop (100% to 5%): {delta:.4f}\n")
+            f.write(f"  {'-'*76}\n")
+            f.write(f"  {'Regime':<12} {'Train Acc':<14} {'Val Acc':<14} {'Train-Val Gap':<14}\n")
+            f.write(f"  {'-'*76}\n")
+            
+            for fraction in DATA_REGIMES:
+                train_acc = results[model_name][fraction]['train']
+                val_acc = results[model_name][fraction]['val']
+                gap = train_acc - val_acc
+                f.write(f"  {fraction*100:3.0f}%{'':<8} {train_acc:<14.4f} {val_acc:<14.4f} {gap:<14.4f}\n")
+        
+        # Sample Efficiency
+        f.write("\n\n" + "="*80 + "\n")
+        f.write("SAMPLE EFFICIENCY METRICS\n")
+        f.write("="*80 + "\n")
+        for model_name in MODELS:
+            f.write(f"\n{model_name}:\n")
+            f.write(f"  {'Data Regime':<14} {'Samples Used':<15} {'Val Acc':<12} {'Efficiency':<12}\n")
+            f.write(f"  {'-'*53}\n")
+            for fraction, samples, val_acc, efficiency in sample_efficiency_results[model_name]:
+                f.write(f"  {fraction*100:3.0f}%{'':<10} {samples:<15} {val_acc:<12.4f} {efficiency:<12.4f}\n")
+        
+        # Overfitting Analysis
+        f.write("\n\n" + "="*80 + "\n")
+        f.write("OVERFITTING ANALYSIS\n")
+        f.write("="*80 + "\n")
+        for model_name in MODELS:
+            f.write(f"\n{model_name}:\n")
+            f.write(f"  {'Data Regime':<14} {'Gap':<12} {'Val Trend':<14} {'Severity':<12}\n")
+            f.write(f"  {'-'*52}\n")
+            for fraction in DATA_REGIMES:
+                score = overfitting_results[model_name][fraction]
+                f.write(f"  {fraction*100:3.0f}%{'':<10} {score['gap']:<12.4f} {score['val_trend']:<14.6f} {score['severity']:<12}\n")
+        
+        f.write("\n" + "="*80 + "\n")
+    
+    print(f"Saved comprehensive results to {base_dir}/comprehensive_results.txt")
+    
 if __name__ == "__main__":
     results = run_experiments()
