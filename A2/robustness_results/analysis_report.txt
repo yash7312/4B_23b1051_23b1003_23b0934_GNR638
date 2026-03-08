@@ -1,0 +1,130 @@
+======================================================================
+TASK 4.4: CORRUPTION ROBUSTNESS ANALYSIS REPORT
+======================================================================
+
+Generated: 2026-03-08 18:31:53
+
+======================================================================
+1. SUMMARY STATISTICS
+======================================================================
+
+
+EFFICIENTNET_B0
+----------------------------------------
+  Clean Accuracy:        0.9207
+  Stability Score:       0.1073
+  Parameters:            4.00M
+  GFLOPs:                0.77
+  Avg Relative Robustness: 0.7581
+
+RESNET50
+----------------------------------------
+  Clean Accuracy:        0.9342
+  Stability Score:       0.1281
+  Parameters:            23.57M
+  GFLOPs:                8.26
+  Avg Relative Robustness: 0.8366
+
+INCEPTION_V3
+----------------------------------------
+  Clean Accuracy:        0.8413
+  Stability Score:       0.1106
+  Parameters:            21.81M
+  GFLOPs:                11.42
+  Avg Relative Robustness: 0.7300
+
+======================================================================
+2. MODEL RANKINGS
+======================================================================
+
+By Clean Accuracy:
+  1. resnet50: 0.9342
+  2. efficientnet_b0: 0.9207
+  3. inception_v3: 0.8413
+
+By Gaussian Stability Score:
+  1. resnet50: 0.1281
+  2. inception_v3: 0.1106
+  3. efficientnet_b0: 0.1073
+
+By Efficiency (Fewer Parameters):
+  1. efficientnet_b0: 4.00M params
+  2. inception_v3: 21.81M params
+  3. resnet50: 23.57M params
+
+======================================================================
+3. KEY INSIGHTS & PATTERNS
+======================================================================
+
+• Most Robust Model: resnet50
+  - Maintains performance best under Gaussian noise
+  - Stability Score: 0.1281
+
+• Least Robust Model: efficientnet_b0
+  - Most sensitive to corruption
+  - Stability Score: 0.1073
+
+• Most Efficient Model: efficientnet_b0
+  - Fewest parameters: 4.00M
+  - GFLOPs: 0.77
+
+Corruption-Specific Observations:
+
+• Hardest Corruption: Gaussian_0.2
+  - Average accuracy across models: 0.4294
+
+• Easiest Corruption: Gaussian_0.05
+  - Average accuracy across models: 0.8830
+
+======================================================================
+4. ARCHITECTURAL CHARACTERISTICS & ROBUSTNESS
+======================================================================
+
+EfficientNet_B0:
+  - Uses compound scaling (depth, width, resolution)
+  - MBConv blocks with squeeze-and-excitation
+  - Most parameter-efficient architecture
+  - Stability Score: 0.1073
+
+ResNet50:
+  - Deep residual connections enable gradient flow
+  - Skip connections may help preserve information under corruption
+  - Stability Score: 0.1281
+
+Inception_v3:
+  - Multi-scale feature extraction with parallel conv paths
+  - Diverse receptive fields may help or hurt depending on corruption
+  - Stability Score: 0.1106
+
+======================================================================
+5. EFFICIENCY-ROBUSTNESS TRADE-OFF ANALYSIS
+======================================================================
+
+efficientnet_b0:
+  - Stability per Million Parameters: 0.026788
+  - Trade-off: 4.00M params → 0.1073 stability
+
+resnet50:
+  - Stability per Million Parameters: 0.005435
+  - Trade-off: 23.57M params → 0.1281 stability
+
+inception_v3:
+  - Stability per Million Parameters: 0.005069
+  - Trade-off: 21.81M params → 0.1106 stability
+
+======================================================================
+6. RECOMMENDATIONS
+======================================================================
+
+For deployment in noisy environments:
+  → Use resnet50 (best robustness)
+
+For resource-constrained deployment:
+  → Use efficientnet_b0 (most efficient)
+
+For balanced performance:
+  → Consider efficiency-stability ratio when choosing
+
+======================================================================
+END OF REPORT
+======================================================================
