@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import timm
+import time
 from thop import profile
 from tqdm import tqdm
 from torchvision import datasets
@@ -12,8 +13,8 @@ import numpy as np
 import random
 import os
 
-def set_seed(seed=42):
 
+def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -29,9 +30,7 @@ set_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODELS = ["efficientnet_b0", "inception_v3", "resnet50"]
-
 DATA_PATH = "train_data/train_data"
-
 NUM_CLASSES = 30
 EPOCHS = 5
 LR = 1e-3
@@ -39,17 +38,16 @@ BATCH_SIZE = 32
 
 os.makedirs("checkpoints_ft", exist_ok=True)
 
+
 def compute_efficiency(model, model_name):
 
     model.eval()
-
     if model_name == "inception_v3":
         input_size = (1,3,299,299)
     else:
         input_size = (1,3,224,224)
 
     dummy = torch.randn(input_size).to(device)
-
     macs, params = profile(model, inputs=(dummy,), verbose=False)
     flops = 2 * macs
 
@@ -59,6 +57,7 @@ def compute_efficiency(model, model_name):
     print(f"MACs       : {macs/1e9:.3f} GMACs")
     print(f"FLOPs      : {flops/1e9:.3f} GFLOPs")
     print("================================================\n")
+
 
 def get_dataloaders(model):
 
@@ -91,6 +90,7 @@ def get_dataloaders(model):
 
     return train_loader, val_loader
 
+
 def create_model(model_name):
 
     model = timm.create_model(model_name, pretrained=True)
@@ -109,8 +109,8 @@ def create_model(model_name):
 
     return model.to(device)
 
-def linear_probe(model):
 
+def linear_probe(model):
     for p in model.parameters():
         p.requires_grad = False
 
@@ -120,7 +120,6 @@ def linear_probe(model):
 
 
 def full_finetune(model):
-
     for p in model.parameters():
         p.requires_grad = True
 
@@ -152,14 +151,13 @@ def selective_20_percent(model):
     target = int(0.2 * total)
 
     count = 0
-
     for p in reversed(list(model.parameters())):
-
         if count >= target:
             break
 
         p.requires_grad = True
         count += p.numel()
+
 
 def get_unfrozen_percentage(model):
 
@@ -168,22 +166,21 @@ def get_unfrozen_percentage(model):
 
     return 100 * trainable / total
 
+
 def train_one_epoch(model, loader, optimizer, criterion, epoch):
 
     model.train()
-
     correct, total = 0, 0
     running_loss = 0
     grad_epoch = 0
 
-    progress_bar = tqdm(loader, desc=f"Epoch {epoch+1}", leave=False)
+    progress_bar = tqdm(loader, desc=f"Train Epoch {epoch+1}", leave=False)
 
     for images, labels in progress_bar:
 
         images, labels = images.to(device), labels.to(device)
 
         optimizer.zero_grad()
-
         outputs = model(images)
 
         if isinstance(outputs, tuple):
@@ -194,11 +191,8 @@ def train_one_epoch(model, loader, optimizer, criterion, epoch):
         loss.backward()
 
         total_norm = 0
-
         for p in model.parameters():
-
             if p.requires_grad and p.grad is not None:
-
                 param_norm = p.grad.data.norm(2)
                 total_norm += param_norm.item() ** 2
 
@@ -222,15 +216,18 @@ def train_one_epoch(model, loader, optimizer, criterion, epoch):
 
     return correct / total, running_loss, grad_epoch
 
-def evaluate(model, loader):
+
+def evaluate(model, loader, epoch):
 
     model.eval()
 
     correct, total = 0, 0
 
+    progress_bar = tqdm(loader, desc=f"Validation Epoch {epoch+1}", leave=False)
+
     with torch.no_grad():
 
-        for images, labels in loader:
+        for images, labels in progress_bar:
 
             images, labels = images.to(device), labels.to(device)
 
@@ -244,7 +241,12 @@ def evaluate(model, loader):
             correct += (preds == labels).sum().item()
             total += labels.size(0)
 
+            acc = correct / total
+
+            progress_bar.set_postfix(val_acc=f"{acc:.3f}")
+
     return correct / total
+
 
 def train_strategy(model_name, strategy_fn, strategy_name):
 
@@ -275,10 +277,14 @@ def train_strategy(model_name, strategy_fn, strategy_name):
     for epoch in range(EPOCHS):
 
         train_acc, loss, grad_norm = train_one_epoch(
-            model, train_loader, optimizer, criterion, epoch
+            model,
+            train_loader,
+            optimizer,
+            criterion,
+            epoch
         )
 
-        val_acc = evaluate(model, val_loader)
+        val_acc = evaluate(model, val_loader, epoch)
 
         train_acc_hist.append(train_acc)
         val_acc_hist.append(val_acc)
@@ -317,7 +323,8 @@ def train_strategy(model_name, strategy_fn, strategy_name):
         f"checkpoints_ft/{model_name}_{strategy_name}.pth"
     )
 
-    return percent, val_acc
+    return percent, train_acc, val_acc
+
 
 strategies = {
 
@@ -327,6 +334,7 @@ strategies = {
 "Selective20": selective_20_percent
 
 }
+
 
 for model_name in MODELS:
 
@@ -338,22 +346,48 @@ for model_name in MODELS:
 
     compute_efficiency(base_model, model_name)
 
-    acc_vs_unfreeze = []
+    train_acc_vs_unfreeze = []
+    val_acc_vs_unfreeze = []
+
+    start_time = time.time()
 
     for strategy_name, fn in strategies.items():
 
-        percent, acc = train_strategy(model_name, fn, strategy_name)
+        percent, train_acc, val_acc = train_strategy(
+            model_name,
+            fn,
+            strategy_name
+        )
 
-        acc_vs_unfreeze.append((percent, acc))
+        train_acc_vs_unfreeze.append((percent, train_acc))
+        val_acc_vs_unfreeze.append((percent, val_acc))
 
+    end_time = time.time()
 
-    x = [a[0] for a in acc_vs_unfreeze]
-    y = [a[1] for a in acc_vs_unfreeze]
+    total_time = end_time - start_time
+
+    print(f"\nTotal Training Time for {model_name}: {total_time/60:.2f} minutes")
+
+    # Training accuracy plot
+    x = [a[0] for a in train_acc_vs_unfreeze]
+    y = [a[1] for a in train_acc_vs_unfreeze]
+
+    plt.figure()
+    plt.plot(x, y, marker="o")
+    plt.xlabel("% Unfrozen Parameters")
+    plt.ylabel("Training Accuracy")
+    plt.title(f"{model_name} Training Accuracy vs Unfrozen Params")
+    plt.savefig(f"{model_name}_train_accuracy_vs_unfreeze.png")
+    plt.close()
+
+    # Validation accuracy plot
+    x = [a[0] for a in val_acc_vs_unfreeze]
+    y = [a[1] for a in val_acc_vs_unfreeze]
 
     plt.figure()
     plt.plot(x, y, marker="o")
     plt.xlabel("% Unfrozen Parameters")
     plt.ylabel("Validation Accuracy")
-    plt.title(f"{model_name} Fine-tuning Comparison")
-    plt.savefig(f"{model_name}_finetune_comparison.png")
+    plt.title(f"{model_name} Validation Accuracy vs Unfrozen Params")
+    plt.savefig(f"{model_name}_val_accuracy_vs_unfreeze.png")
     plt.close()
