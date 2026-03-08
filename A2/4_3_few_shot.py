@@ -154,23 +154,31 @@ def train_regime(model_name, fraction):
     
     best_val_acc = 0.0
     final_train_acc = 0.0
+    train_history = []
+    val_history = []
+    gradient_data = {}
 
     # Training loop
     for epoch in range(EPOCHS):
 
         train_acc = train_one_epoch(model, train_loader, optimizer, criterion, epoch)
         final_train_acc = train_acc
+        train_history.append(train_acc)
         
         val_acc = evaluate(model, val_loader)
+        val_history.append(val_acc)
         
         best_val_acc = max(best_val_acc, val_acc)
+        
+        # Track gradient flow
+        gradient_data[epoch] = analyze_layer_gradients(model, epoch)
         
         print(
             f"Epoch {epoch+1}/{EPOCHS} | "
             f"Train Acc: {train_acc:.3f} | "
             f"Val Acc: {val_acc:.3f}"
         )
-    return final_train_acc, best_val_acc
+    return final_train_acc, best_val_acc, model, train_history, val_history, gradient_data
 
 
 def compute_relative_drop(results, model_name):
@@ -221,8 +229,20 @@ def run_experiments():
     print(f"Models: {MODELS}")
     print(f"Data Regimes: {[f'{f*100:.0f}%' for f in DATA_REGIMES]}")
     
+    # Create results directory structure
+    base_results_dir = "few_shot_analysis"
+    os.makedirs(base_results_dir, exist_ok=True)
+    os.makedirs(f"{base_results_dir}/efficiency_metrics", exist_ok=True)
+    os.makedirs(f"{base_results_dir}/plots", exist_ok=True)
+    os.makedirs(f"{base_results_dir}/overfitting_analysis", exist_ok=True)
+    os.makedirs(f"{base_results_dir}/gradient_analysis", exist_ok=True)
+    
     # Initialize results storage
     results = {model_name: {} for model_name in MODELS}
+    efficiency_results = {}
+    sample_efficiency_results = {}
+    overfitting_results = {}
+    gradient_results = {}
     
     # Train each model on each data regime
     for model_name in MODELS:
@@ -230,14 +250,43 @@ def run_experiments():
         print(f"Starting experiments for {model_name}")
         print(f"{'='*60}")
         
+        efficiency_results[model_name] = {}
+        overfitting_results[model_name] = {}
+        gradient_results[model_name] = {}
+        
         for fraction in DATA_REGIMES:
-            train_acc, val_acc = train_regime(model_name, fraction)
+            train_acc, val_acc, model, train_history, val_history, gradient_data = train_regime(model_name, fraction)
             results[model_name][fraction] = {
                 "train": train_acc, 
-                "val": val_acc
+                "val": val_acc,
+                "train_history": train_history,
+                "val_history": val_history
             }
+            
+            # Compute overfitting score for this fraction
+            overfitting_score = compute_overfitting_score(train_acc, val_acc, train_history, val_history)
+            overfitting_results[model_name][fraction] = overfitting_score
+            
+            # Store gradient data
+            gradient_results[model_name][fraction] = gradient_data
+        
+        # Compute and save efficiency metrics for this model
+        model_for_efficiency = create_model(model_name)
+        efficiency_metrics = compute_efficiency_metrics(model_for_efficiency, model_name)
+        efficiency_results[model_name] = efficiency_metrics
+        
+        # Compute sample efficiency
+        sample_efficiency = compute_sample_efficiency(results, model_name)
+        sample_efficiency_results[model_name] = sample_efficiency
+        
+        # Plot learning curves
+        plot_learning_curves(results, model_name, save_dir=f"{base_results_dir}/plots")
     
     print_results(results)
+    
+    # Save all results to files
+    save_analysis_results(results, efficiency_results, sample_efficiency_results, 
+                         overfitting_results, gradient_results, base_results_dir)
     
     return results
 
@@ -270,5 +319,130 @@ def compute_sample_efficiency(results, model_name):
         metrics.append((fraction, samples_used, val_acc, efficiency))
     return metrics
 
+def analyze_layer_gradients(model, epoch):
+    """Track gradient flow through layers"""
+    grad_norms = {}
+    for name, p in model.named_parameters():
+        if p.grad is not None and p.requires_grad:
+            grad_norms[name] = p.grad.norm().item()
+    return grad_norms
+
+def compute_overfitting_score(train_acc, val_acc, train_history, val_history):
+    """Quantify overfitting severity"""
+    gap = train_acc - val_acc
+    trend = np.polyfit(range(len(val_history)), val_history, 1)[0]  # Slope
+    
+    return {
+        "gap": gap,
+        "val_trend": trend,
+        "severity": "High" if gap > 0.15 else "Medium" if gap > 0.08 else "Low"
+    }
+
+def plot_learning_curves(results, model_name, save_dir="few_shot_analysis"):
+    """Create detailed learning curve visualizations"""
+    os.makedirs(save_dir, exist_ok=True)
+    
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # Plot 1: Accuracy vs Data Regime
+    regimes = [f"{f*100:.0f}%" for f in DATA_REGIMES]
+    val_accs = [results[model_name][f]["val"] for f in DATA_REGIMES]
+    train_accs = [results[model_name][f]["train"] for f in DATA_REGIMES]
+    
+    axes[0, 0].plot(regimes, val_accs, 'o-', label='Val Acc')
+    axes[0, 0].plot(regimes, train_accs, 's-', label='Train Acc')
+    axes[0, 0].set_title(f'{model_name} - Accuracy vs Data')
+    axes[0, 0].legend()
+    axes[0, 0].set_ylabel('Accuracy')
+    axes[0, 0].grid(True, alpha=0.3)
+    
+    # Plot 2: Overfitting Gap
+    gaps = [t - v for t, v in zip(train_accs, val_accs)]
+    colors = ['red' if g > 0.15 else 'orange' if g > 0.08 else 'green' for g in gaps]
+    axes[0, 1].bar(regimes, gaps, color=colors, alpha=0.7)
+    axes[0, 1].set_title('Train-Val Gap (Overfitting Severity)', fontsize=12, fontweight='bold')
+    axes[0, 1].set_ylabel('Gap')
+    axes[0, 1].grid(True, alpha=0.3, axis='y')
+    
+    # Plot 3: Training curves for 100% data regime
+    if 1.0 in results[model_name]:
+        train_hist = results[model_name][1.0]["train_history"]
+        val_hist = results[model_name][1.0]["val_history"]
+        epochs = range(1, len(train_hist) + 1)
+        axes[1, 0].plot(epochs, train_hist, 'o-', label='Train', linewidth=2, markersize=6)
+        axes[1, 0].plot(epochs, val_hist, 's-', label='Val', linewidth=2, markersize=6)
+        axes[1, 0].set_title(f'{model_name} - Learning Curves (100% Data)', fontsize=12, fontweight='bold')
+        axes[1, 0].set_xlabel('Epoch')
+        axes[1, 0].set_ylabel('Accuracy')
+        axes[1, 0].legend()
+        axes[1, 0].grid(True, alpha=0.3)
+    
+    # Plot 4: Sample efficiency
+    if 1.0 in results[model_name]:
+        regimes_numeric = [f*100 for f in DATA_REGIMES]
+        val_accs_list = [results[model_name][f]["val"] for f in DATA_REGIMES]
+        axes[1, 1].plot(regimes_numeric, val_accs_list, 'o-', linewidth=2, markersize=8, color='purple')
+        axes[1, 1].set_title(f'{model_name} - Data Efficiency', fontsize=12, fontweight='bold')
+        axes[1, 1].set_xlabel('Data Regime (%)')
+        axes[1, 1].set_ylabel('Validation Accuracy')
+        axes[1, 1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(f"{save_dir}/{model_name}_analysis.png", dpi=300)
+    plt.close()
+    print(f"Saved plot: {save_dir}/{model_name}_analysis.png")
+    
+def save_analysis_results(results, efficiency_results, sample_efficiency_results, 
+                          overfitting_results, gradient_results, base_dir):
+    """Save all analysis results to CSV and TXT files"""
+    
+    # 1. Save Efficiency Metrics to CSV
+    efficiency_data = []
+    for model_name in MODELS:
+        metrics = efficiency_results[model_name]
+        efficiency_data.append({
+            'Model': model_name,
+            'Total Parameters': metrics['total_params'],
+            'Trainable Parameters': metrics['trainable_params'],
+            'FLOPs': metrics['flops'],
+            'Trainable Ratio': metrics['trainable_ratio']
+        })
+    
+    efficiency_df = pd.DataFrame(efficiency_data)
+    efficiency_df.to_csv(f"{base_dir}/efficiency_metrics/model_efficiency.csv", index=False)
+    print(f"\nSaved efficiency metrics to {base_dir}/efficiency_metrics/model_efficiency.csv")
+    
+    # 2. Save Sample Efficiency to CSV
+    sample_eff_data = []
+    for model_name in MODELS:
+        for fraction, samples, val_acc, efficiency in sample_efficiency_results[model_name]:
+            sample_eff_data.append({
+                'Model': model_name,
+                'Data Regime': f"{fraction*100:.0f}%",
+                'Samples Used': samples,
+                'Validation Accuracy': val_acc,
+                'Sample Efficiency': efficiency
+            })
+    
+    sample_eff_df = pd.DataFrame(sample_eff_data)
+    sample_eff_df.to_csv(f"{base_dir}/efficiency_metrics/sample_efficiency.csv", index=False)
+    print(f"Saved sample efficiency to {base_dir}/efficiency_metrics/sample_efficiency.csv")
+    
+    # 3. Save Overfitting Analysis to CSV
+    overfit_data = []
+    for model_name in MODELS:
+        for fraction, overfit_score in overfitting_results[model_name].items():
+            overfit_data.append({
+                'Model': model_name,
+                'Data Regime': f"{fraction*100:.0f}%",
+                'Train-Val Gap': overfit_score['gap'],
+                'Validation Trend': overfit_score['val_trend'],
+                'Severity': overfit_score['severity']
+            })
+    
+    overfit_df = pd.DataFrame(overfit_data)
+    overfit_df.to_csv(f"{base_dir}/overfitting_analysis/overfitting_metrics.csv", index=False)
+    print(f"Saved overfitting analysis to {base_dir}/overfitting_analysis/overfitting_metrics.csv")
+    
 if __name__ == "__main__":
     results = run_experiments()
