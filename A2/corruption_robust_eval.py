@@ -244,7 +244,7 @@ def save_results_to_csv():
         writer.writerow(["Model", "Clean_Accuracy", "Corruption", "Corrupted_Accuracy", 
                         "Corruption_Error", "Relative_Robustness", "Params_M", "GFLOPs"])
         writer.writerows(results)
-    print(f"\n✓ Results saved to: {csv_path}")
+    print(f"\nResults saved to: {csv_path}")
 
 def save_efficiency_metrics():
     """Save efficiency metrics to separate CSV"""
@@ -255,7 +255,7 @@ def save_efficiency_metrics():
         for model_name, metrics in efficiency_metrics.items():
             writer.writerow([model_name, metrics['params'], metrics['params_M'], 
                            metrics['macs']/1e9, metrics['gflops']])
-    print(f"✓ Efficiency metrics saved to: {csv_path}")
+    print(f"Efficiency metrics saved to: {csv_path}")
 
 def plot_robustness_curves():
     """Plot robustness curves for Gaussian noise"""
@@ -282,7 +282,7 @@ def plot_robustness_curves():
     
     save_path = os.path.join(PLOTS_DIR, "gaussian_robustness_curves.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    print(f"✓ Gaussian robustness curves saved to: {save_path}")
+    print(f"Gaussian robustness curves saved to: {save_path}")
     plt.close()
 
 def plot_corruption_comparison():
@@ -311,7 +311,7 @@ def plot_corruption_comparison():
     
     save_path = os.path.join(PLOTS_DIR, "corruption_comparison.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    print(f"✓ Corruption comparison plot saved to: {save_path}")
+    print(f"Corruption comparison plot saved to: {save_path}")
     plt.close()
 
 def plot_efficiency_vs_robustness():
@@ -346,7 +346,7 @@ def plot_efficiency_vs_robustness():
     plt.tight_layout()
     save_path = os.path.join(PLOTS_DIR, "efficiency_robustness_tradeoff.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    print(f"✓ Efficiency-robustness trade-off plot saved to: {save_path}")
+    print(f"Efficiency-robustness trade-off plot saved to: {save_path}")
     plt.close()
 
 def plot_relative_robustness_heatmap():
@@ -387,7 +387,7 @@ def plot_relative_robustness_heatmap():
     
     save_path = os.path.join(PLOTS_DIR, "relative_robustness_heatmap.png")
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    print(f"✓ Relative robustness heatmap saved to: {save_path}")
+    print(f"Relative robustness heatmap saved to: {save_path}")
     plt.close()
 
 def generate_analysis_report():
@@ -522,7 +522,7 @@ def generate_analysis_report():
             
             f.write(f"{model}:\n")
             f.write(f"  - Stability per Million Parameters: {efficiency_ratio:.6f}\n")
-            f.write(f"  - Trade-off: {eff['params_M']:.2f}M params → {stab:.4f} stability\n\n")
+            f.write(f"  - Trade-off: {eff['params_M']:.2f}M params - {stab:.4f} stability\n\n")
         
         # Recommendations
         f.write("="*70 + "\n")
@@ -530,19 +530,19 @@ def generate_analysis_report():
         f.write("="*70 + "\n\n")
         
         f.write("For deployment in noisy environments:\n")
-        f.write(f"  → Use {best_stable_model} (best robustness)\n\n")
+        f.write(f"  - Use {best_stable_model} (best robustness)\n\n")
         
         f.write("For resource-constrained deployment:\n")
-        f.write(f"  → Use {most_efficient_model} (most efficient)\n\n")
+        f.write(f"  - Use {most_efficient_model} (most efficient)\n\n")
         
         f.write("For balanced performance:\n")
-        f.write("  → Consider efficiency-stability ratio when choosing\n\n")
+        f.write("  - Consider efficiency-stability ratio when choosing\n\n")
         
         f.write("="*70 + "\n")
         f.write("END OF REPORT\n")
         f.write("="*70 + "\n")
     
-    print(f"✓ Analysis report saved to: {report_path}")
+    print(f"Analysis report saved to: {report_path}")
 
 # ============================================================================
 # MAIN EXECUTION
