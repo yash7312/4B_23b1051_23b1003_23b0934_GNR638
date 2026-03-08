@@ -156,7 +156,7 @@ def train_regime(model_name, fraction):
     final_train_acc = 0.0
     train_history = []
     val_history = []
-    gradient_data = {}
+    gradient_history = []
 
     # Training loop
     for epoch in range(EPOCHS):
@@ -169,16 +169,21 @@ def train_regime(model_name, fraction):
         val_history.append(val_acc)
         
         best_val_acc = max(best_val_acc, val_acc)
-        
-        # Track gradient flow
-        gradient_data[epoch] = analyze_layer_gradients(model, epoch)
+
+        grad_norms = analyze_layer_gradients(model, epoch)
+        for layer_name, grad_norm in grad_norms.items():
+            gradient_history.append({
+                "epoch": epoch + 1,
+                "layer": layer_name,
+                "grad_norm": grad_norm
+            })
         
         print(
             f"Epoch {epoch+1}/{EPOCHS} | "
             f"Train Acc: {train_acc:.3f} | "
             f"Val Acc: {val_acc:.3f}"
         )
-    return final_train_acc, best_val_acc, model, train_history, val_history, gradient_data
+    return final_train_acc, best_val_acc, model, train_history, val_history, gradient_history
 
 
 def compute_relative_drop(results, model_name):
@@ -228,12 +233,11 @@ def run_experiments():
     print(f"Device: {device}")
     print(f"Models: {MODELS}")
     print(f"Data Regimes: {[f'{f*100:.0f}%' for f in DATA_REGIMES]}")
-    
-    # Create results directory structure
+
     base_results_dir = "few_shot_analysis"
     os.makedirs(base_results_dir, exist_ok=True)
-    os.makedirs(f"{base_results_dir}/efficiency_metrics", exist_ok=True)
     os.makedirs(f"{base_results_dir}/plots", exist_ok=True)
+    os.makedirs(f"{base_results_dir}/efficiency_metrics", exist_ok=True)
     os.makedirs(f"{base_results_dir}/overfitting_analysis", exist_ok=True)
     os.makedirs(f"{base_results_dir}/gradient_analysis", exist_ok=True)
     
@@ -241,52 +245,55 @@ def run_experiments():
     results = {model_name: {} for model_name in MODELS}
     efficiency_results = {}
     sample_efficiency_results = {}
-    overfitting_results = {}
-    gradient_results = {}
+    overfitting_results = {model_name: {} for model_name in MODELS}
+    gradient_results = []
     
     # Train each model on each data regime
     for model_name in MODELS:
         print(f"\n{'='*60}")
         print(f"Starting experiments for {model_name}")
         print(f"{'='*60}")
-        
-        efficiency_results[model_name] = {}
-        overfitting_results[model_name] = {}
-        gradient_results[model_name] = {}
+
+        model_efficiency = compute_efficiency_metrics(create_model(model_name), model_name)
+        efficiency_results[model_name] = model_efficiency
         
         for fraction in DATA_REGIMES:
-            train_acc, val_acc, model, train_history, val_history, gradient_data = train_regime(model_name, fraction)
+            train_acc, val_acc, trained_model, train_history, val_history, gradient_history = train_regime(model_name, fraction)
             results[model_name][fraction] = {
                 "train": train_acc, 
                 "val": val_acc,
                 "train_history": train_history,
                 "val_history": val_history
             }
-            
-            # Compute overfitting score for this fraction
-            overfitting_score = compute_overfitting_score(train_acc, val_acc, train_history, val_history)
-            overfitting_results[model_name][fraction] = overfitting_score
-            
-            # Store gradient data
-            gradient_results[model_name][fraction] = gradient_data
-        
-        # Compute and save efficiency metrics for this model
-        model_for_efficiency = create_model(model_name)
-        efficiency_metrics = compute_efficiency_metrics(model_for_efficiency, model_name)
-        efficiency_results[model_name] = efficiency_metrics
-        
-        # Compute sample efficiency
-        sample_efficiency = compute_sample_efficiency(results, model_name)
-        sample_efficiency_results[model_name] = sample_efficiency
-        
-        # Plot learning curves
+
+            overfitting_results[model_name][fraction] = compute_overfitting_score(
+                train_acc, val_acc, train_history, val_history
+            )
+
+            for row in gradient_history:
+                gradient_results.append({
+                    "model": model_name,
+                    "data_regime": f"{fraction*100:.0f}%",
+                    "epoch": row["epoch"],
+                    "layer": row["layer"],
+                    "grad_norm": row["grad_norm"]
+                })
+
+            del trained_model
+
+        sample_efficiency_results[model_name] = compute_sample_efficiency(results, model_name)
         plot_learning_curves(results, model_name, save_dir=f"{base_results_dir}/plots")
     
     print_results(results)
-    
-    # Save all results to files
-    save_analysis_results(results, efficiency_results, sample_efficiency_results, 
-                         overfitting_results, gradient_results, base_results_dir)
+
+    save_analysis_results(
+        results,
+        efficiency_results,
+        sample_efficiency_results,
+        overfitting_results,
+        gradient_results,
+        base_results_dir
+    )
     
     return results
 
@@ -443,7 +450,13 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
     overfit_df = pd.DataFrame(overfit_data)
     overfit_df.to_csv(f"{base_dir}/overfitting_analysis/overfitting_metrics.csv", index=False)
     print(f"Saved overfitting analysis to {base_dir}/overfitting_analysis/overfitting_metrics.csv")
+
+    # 4. Save Layer Gradient Analysis to CSV
+    gradients_df = pd.DataFrame(gradient_results)
+    gradients_df.to_csv(f"{base_dir}/gradient_analysis/layer_gradients.csv", index=False)
+    print(f"Saved layer gradient analysis to {base_dir}/gradient_analysis/layer_gradients.csv")
     
+    # 5. Save comprehensive results summary to TXT
     with open(f"{base_dir}/comprehensive_results.txt", 'w') as f:
         f.write("="*80 + "\n")
         f.write("FEW-SHOT LEARNING ANALYSIS - COMPREHENSIVE RESULTS\n")
@@ -504,6 +517,8 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
         f.write("\n" + "="*80 + "\n")
     
     print(f"Saved comprehensive results to {base_dir}/comprehensive_results.txt")
-    
+
 if __name__ == "__main__":
     results = run_experiments()
+    
+    
