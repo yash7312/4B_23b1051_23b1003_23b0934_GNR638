@@ -234,7 +234,6 @@ def run_experiments():
     # Initialize results storage
     results = {model_name: {} for model_name in MODELS}
     efficiency_results = {}
-    sample_efficiency_results = {}
     overfitting_results = {model_name: {} for model_name in MODELS}
     
     # Train each model on each data regime
@@ -260,8 +259,6 @@ def run_experiments():
             )
 
             del trained_model
-
-        sample_efficiency_results[model_name] = compute_sample_efficiency(results, model_name)
         plot_learning_curves(results, model_name, save_dir=f"{base_results_dir}/plots")
     
     print_results(results)
@@ -269,7 +266,6 @@ def run_experiments():
     save_analysis_results(
         results,
         efficiency_results,
-        sample_efficiency_results,
         overfitting_results,
         base_results_dir
     )
@@ -294,16 +290,6 @@ def compute_efficiency_metrics(model, model_name):
         "flops": flops,
         "trainable_ratio": trainable / params
     }
-
-def compute_sample_efficiency(results, model_name):
-    """Calculate accuracy per training sample"""
-    metrics = []
-    for fraction in DATA_REGIMES:
-        samples_used = int(fraction * 0.8 * 21000)  # Approximate dataset size
-        val_acc = results[model_name][fraction]["val"]
-        efficiency = val_acc / samples_used * 10000  # Normalized
-        metrics.append((fraction, samples_used, val_acc, efficiency))
-    return metrics
 
 def compute_overfitting_score(train_acc, val_acc, train_history, val_history):
     """Quantify overfitting severity"""
@@ -370,8 +356,7 @@ def plot_learning_curves(results, model_name, save_dir="few_shot_analysis"):
     plt.close()
     print(f"Saved plot: {save_dir}/{model_name}_analysis.png")
     
-def save_analysis_results(results, efficiency_results, sample_efficiency_results, 
-                          overfitting_results, base_dir):
+def save_analysis_results(results, efficiency_results, overfitting_results, base_dir):
     """Save all analysis results to CSV and TXT files"""
     
     # 1. Save Efficiency Metrics to CSV
@@ -390,23 +375,7 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
     efficiency_df.to_csv(f"{base_dir}/efficiency_metrics/model_efficiency.csv", index=False)
     print(f"\nSaved efficiency metrics to {base_dir}/efficiency_metrics/model_efficiency.csv")
     
-    # 2. Save Sample Efficiency to CSV
-    sample_eff_data = []
-    for model_name in MODELS:
-        for fraction, samples, val_acc, efficiency in sample_efficiency_results[model_name]:
-            sample_eff_data.append({
-                'Model': model_name,
-                'Data Regime': f"{fraction*100:.0f}%",
-                'Samples Used': samples,
-                'Validation Accuracy': val_acc,
-                'Sample Efficiency': efficiency
-            })
-    
-    sample_eff_df = pd.DataFrame(sample_eff_data)
-    sample_eff_df.to_csv(f"{base_dir}/efficiency_metrics/sample_efficiency.csv", index=False)
-    print(f"Saved sample efficiency to {base_dir}/efficiency_metrics/sample_efficiency.csv")
-    
-    # 3. Save Overfitting Analysis to CSV
+    # 2. Save Overfitting Analysis to CSV
     overfit_data = []
     for model_name in MODELS:
         for fraction, overfit_score in overfitting_results[model_name].items():
@@ -422,7 +391,7 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
     overfit_df.to_csv(f"{base_dir}/overfitting_analysis/overfitting_metrics.csv", index=False)
     print(f"Saved overfitting analysis to {base_dir}/overfitting_analysis/overfitting_metrics.csv")
     
-    # 4. Save comprehensive results summary to TXT
+    # 3. Save comprehensive results summary to TXT
     with open(f"{base_dir}/comprehensive_results.txt", 'w') as f:
         f.write("="*80 + "\n")
         f.write("FEW-SHOT LEARNING ANALYSIS - COMPREHENSIVE RESULTS\n")
@@ -456,17 +425,6 @@ def save_analysis_results(results, efficiency_results, sample_efficiency_results
                 val_acc = results[model_name][fraction]['val']
                 gap = train_acc - val_acc
                 f.write(f"  {fraction*100:3.0f}%{'':<8} {train_acc:<14.4f} {val_acc:<14.4f} {gap:<14.4f}\n")
-        
-        # Sample Efficiency
-        f.write("\n\n" + "="*80 + "\n")
-        f.write("SAMPLE EFFICIENCY METRICS\n")
-        f.write("="*80 + "\n")
-        for model_name in MODELS:
-            f.write(f"\n{model_name}:\n")
-            f.write(f"  {'Data Regime':<14} {'Samples Used':<15} {'Val Acc':<12} {'Efficiency':<12}\n")
-            f.write(f"  {'-'*53}\n")
-            for fraction, samples, val_acc, efficiency in sample_efficiency_results[model_name]:
-                f.write(f"  {fraction*100:3.0f}%{'':<10} {samples:<15} {val_acc:<12.4f} {efficiency:<12.4f}\n")
         
         # Overfitting Analysis
         f.write("\n\n" + "="*80 + "\n")
