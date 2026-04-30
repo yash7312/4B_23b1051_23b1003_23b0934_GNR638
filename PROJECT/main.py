@@ -79,8 +79,24 @@ def build_grid(patches):
     return grid
 
 def stitch(grid):
-    # Simple horizontal then vertical stack (ignoring internal overlap for reconstruction simplicity)
-    return np.vstack([np.hstack([cell[1] for cell in row]) for row in grid])
+    size = len(grid)
+    patch_h, patch_w, _ = grid[0][0][1].shape
+    
+    # Calculate new dimensions: First patch is full size, others contribute (size - overlap)
+    full_h = patch_h + (size - 1) * (patch_h - OVERLAP)
+    full_w = patch_w + (size - 1) * (patch_w - OVERLAP)
+    
+    canvas = np.zeros((full_h, full_w, 3), dtype=np.uint8)
+
+    for i in range(size):
+        for j in range(size):
+            patch = grid[i][j][1]
+            y_start = i * (patch_h - OVERLAP)
+            x_start = j * (patch_w - OVERLAP)
+            
+            # Simple overwrite or Alpha Blending could be used here
+            canvas[y_start:y_start+patch_h, x_start:x_start+patch_w] = patch
+    return canvas
 
 def answer_questions(full_map):
     df = pd.read_csv(TEST_CSV)
