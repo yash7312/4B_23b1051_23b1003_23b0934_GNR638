@@ -38,16 +38,19 @@ def rotations(img):
             cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)]
 
 def get_score(img_a, img_b, direction):
-    if direction == "right":
-        edge_a = img_a[:, -OVERLAP:]
-        edge_b = img_b[:, :OVERLAP]
-    else:
-        edge_a = img_a[-OVERLAP:, :]
-        edge_b = img_b[:OVERLAP, :]
+    best_match = -1.0
+    # Search for the "lock" within a small range
+    for offset in range(OVERLAP - 2, OVERLAP + 3):
+        if direction == "right":
+            edge_a = img_a[:, -offset:]
+            edge_b = img_b[:, :offset]
+        else:
+            edge_a = img_a[-offset:, :]
+            edge_b = img_b[:offset, :]
         
-    # Use template matching score (CCORR) instead of MSE
-    res = cv2.matchTemplate(edge_a, edge_b, cv2.TM_CCORR_NORMED)
-    return res[0][0]
+        res = cv2.matchTemplate(edge_a, edge_b, cv2.TM_CCORR_NORMED)
+        best_match = max(best_match, res[0][0])
+    return best_match
 
 def build_grid(patches):
     keys = list(patches.keys())
