@@ -38,13 +38,16 @@ def rotations(img):
             cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)]
 
 def get_score(img_a, img_b, direction):
-    """Calculates MSE on the overlapping region."""
     if direction == "right":
-        # Right edge of A matches Left edge of B
-        return -np.mean((img_a[:, -OVERLAP:] - img_b[:, :OVERLAP])**2)
+        edge_a = img_a[:, -OVERLAP:]
+        edge_b = img_b[:, :OVERLAP]
     else:
-        # Bottom edge of A matches Top edge of B
-        return -np.mean((img_a[-OVERLAP:, :] - img_b[:OVERLAP, :])**2)
+        edge_a = img_a[-OVERLAP:, :]
+        edge_b = img_b[:OVERLAP, :]
+        
+    # Use template matching score (CCORR) instead of MSE
+    res = cv2.matchTemplate(edge_a, edge_b, cv2.TM_CCORR_NORMED)
+    return res[0][0]
 
 def build_grid(patches):
     keys = list(patches.keys())
