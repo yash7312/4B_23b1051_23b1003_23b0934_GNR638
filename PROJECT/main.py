@@ -13,24 +13,17 @@ from PIL import Image
 PATCH_DIR = "patches"
 TEST_CSV = "test.csv"
 OUTPUT_CSV = "submission.csv"
-
+MODEL_PATH = "models"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-CONF_THRESHOLD = 0.5
+OVERLAP = 30  # Adjust based on dataset characteristics
 
 # ======================
-# LOAD CLIP (LOCAL)
+# LOAD CLIP (LOCAL PREFERENCE)
 # ======================
 print("Loading CLIP...")
-model, preprocess = clip.load(
-    "ViT-B/32",
-    device=DEVICE,
-    download_root="models"
-)
+model, preprocess = clip.load("ViT-B/32", device=DEVICE, download_root=MODEL_PATH)
 model.eval()
 
-# ======================
-# LOAD PATCHES
-# ======================
 def load_patches(folder):
     patches = {}
     for f in os.listdir(folder):
@@ -39,214 +32,96 @@ def load_patches(folder):
             patches[idx] = cv2.imread(os.path.join(folder, f))
     return patches
 
-# ======================
-# ROTATIONS
-# ======================
 def rotations(img):
-    return [
-        img,
-        cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE),
-        cv2.rotate(img, cv2.ROTATE_180),
-        cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    ]
+    return [img, cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE), 
+            cv2.rotate(img, cv2.ROTATE_180), 
+            cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)]
 
-# ======================
-# EDGE SCORE
-# ======================
-def edge_score(a, b, direction):
-    k = 30
+def get_score(img_a, img_b, direction):
+    """Calculates MSE on the overlapping region."""
     if direction == "right":
-        return -np.mean((a[:, -k:] - b[:, :k])**2)
+        # Right edge of A matches Left edge of B
+        return -np.mean((img_a[:, -OVERLAP:] - img_b[:, :OVERLAP])**2)
     else:
-        return -np.mean((a[-k:, :] - b[:k, :])**2)
+        # Bottom edge of A matches Top edge of B
+        return -np.mean((img_a[-OVERLAP:, :] - img_b[:OVERLAP, :])**2)
 
-# ======================
-# BUILD GRID
-# ======================
 def build_grid(patches):
     keys = list(patches.keys())
     size = int(np.sqrt(len(keys)))
-
     grid = [[None]*size for _ in range(size)]
-    used = set()
-
+    used = {0}
+    
+    # patch_0.png is always top-left
     grid[0][0] = (0, patches[0])
-    used.add(0)
 
     print("Stitching image...")
-
-    for i in tqdm(range(size)):
+    for i in range(size):
         for j in range(size):
-            if i == 0 and j == 0:
-                continue
+            if i == 0 and j == 0: continue
 
-            best_score = -1e18
+            best_score = -float('inf')
             best_choice = None
 
             for idx in keys:
-                if idx in used:
-                    continue
-
+                if idx in used: continue
                 for rot in rotations(patches[idx]):
                     score = 0
-
-                    if j > 0:
-                        score += edge_score(grid[i][j-1][1], rot, "right")
-
-                    if i > 0:
-                        score += edge_score(grid[i-1][j][1], rot, "bottom")
-
+                    if j > 0: score += get_score(grid[i][j-1][1], rot, "right")
+                    if i > 0: score += get_score(grid[i-1][j][1], rot, "bottom")
+                    
                     if score > best_score:
                         best_score = score
                         best_choice = (idx, rot)
-
-            if best_choice is None:
-                for idx in keys:
-                    if idx not in used:
-                        best_choice = (idx, patches[idx])
-                        break
-
+            
             grid[i][j] = best_choice
             used.add(best_choice[0])
-
     return grid
 
-# ======================
-# STITCH IMAGE
-# ======================
 def stitch(grid):
-    rows = []
-    for row in grid:
-        rows.append(np.hstack([cell[1] for cell in row]))
-    return np.vstack(rows)
+    # Simple horizontal then vertical stack (ignoring internal overlap for reconstruction simplicity)
+    return np.vstack([np.hstack([cell[1] for cell in row]) for row in grid])
 
-# ======================
-# INFORMATIVE PATCHES (KEY FIX)
-# ======================
-def get_informative_patches(img, size=224, stride=64):
-    h, w, _ = img.shape
-    patches = []
-
-    for y in range(0, h-size, stride):
-        for x in range(0, w-size, stride):
-
-            patch = img[y:y+size, x:x+size]
-
-            gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
-
-            edges = np.mean(cv2.Canny(gray, 100, 200))
-            variance = np.var(gray)
-
-            score = edges + variance
-
-            if score > 20:   # keep only informative
-                patches.append(patch)
-
-    return patches
-
-# ======================
-# EXTRA ZOOM PATCHES
-# ======================
-def get_zoom_patches(img):
-    h, w, _ = img.shape
-    crops = []
-
-    crops.append(img[h//4:3*h//4, w//4:3*w//4])
-    crops.append(img[:h//2, :w//2])
-    crops.append(img[:h//2, w//2:])
-    crops.append(img[h//2:, :w//2])
-    crops.append(img[h//2:, w//2:])
-
-    return crops
-
-# ======================
-# CLIP SCORE
-# ======================
-def clip_score(image, texts):
-
-    image = preprocess(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(DEVICE)
-    text = clip.tokenize(texts).to(DEVICE)
-
-    with torch.no_grad():
-        logits_per_image, _ = model(image, text)
-
-    probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
-    return probs
-
-# ======================
-# ANSWER FUNCTION
-# ======================
-def answer_question(question, options, full_map):
-
-    texts = [question + ". " + opt for opt in options]
-
-    best_score = 0
-    best_option = 5
-
-    patches = get_informative_patches(full_map)
-    patches += get_zoom_patches(full_map)
-
-    for patch in patches:
-        probs = clip_score(patch, texts)
-
-        idx = np.argmax(probs)
-        score = probs[idx]
-
-        if score > best_score:
-            best_score = score
-            best_option = idx + 1
-
-    # full image also
-    probs = clip_score(full_map, texts)
-    idx = np.argmax(probs)
-    score = probs[idx]
-
-    if score > best_score:
-        best_score = score
-        best_option = idx + 1
-
-    if best_score < CONF_THRESHOLD:
-        return 5
-
-    return best_option
-
-# ======================
-# MAIN
-# ======================
-def main():
-    patches = load_patches(PATCH_DIR)
-
-    grid = build_grid(patches)
-    full_map = stitch(grid)
-
-    cv2.imwrite("reconstructed_map.png", full_map)
-
+def answer_questions(full_map):
     df = pd.read_csv(TEST_CSV)
-    option_cols = [c for c in df.columns if "option" in c.lower()]
-
-    answers = []
-
-    print("Answering questions...")
+    results = []
+    
+    # Basic Informative patches: center and 4 corners
+    h, w, _ = full_map.shape
+    views = [
+        full_map, # Global
+        full_map[h//4:3*h//4, w//4:3*w//4], # Center
+        full_map[:h//2, :w//2], # Top-Left
+        full_map[:h//2, w//2:], # Top-Right
+        full_map[h//2:, :w//2], # Bottom-Left
+        full_map[h//2:, w//2:]  # Bottom-Right
+    ]
 
     for _, row in tqdm(df.iterrows(), total=len(df)):
-        qid = row["id"]
-        question = row["question"]
-        options = [row[c] for c in option_cols[:4]]
+        options = [row[f"option_{i}"] for i in range(1, 5)]
+        texts = clip.tokenize([f"{row['question']} {opt}" for opt in options]).to(DEVICE)
+        
+        best_prob = 0
+        final_ans = 5 # Default to 'unanswered' to avoid negative marks[cite: 3]
 
-        ans = answer_question(question, options, full_map)
+        for view in views:
+            img_input = preprocess(Image.fromarray(cv2.cvtColor(view, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(DEVICE)
+            with torch.no_grad():
+                logits, _ = model(img_input, texts)
+                probs = logits.softmax(dim=-1).cpu().numpy()[0]
+            
+            if np.max(probs) > best_prob:
+                best_prob = np.max(probs)
+                if best_prob > 0.4: # Confidence Threshold
+                    final_ans = np.argmax(probs) + 1
 
-        answers.append({
-            "id": qid,
-            "question_num": qid,
-            "option": ans
-        })
+        results.append({"id": row["id"], "question_num": row["id"], "option": final_ans})
+    
+    pd.DataFrame(results).to_csv(OUTPUT_CSV, index=False)
 
-    pd.DataFrame(answers).to_csv(OUTPUT_CSV, index=False)
-
-    print("✅ Done! Submission saved.")
-
-# ======================
-# RUN
-# ======================
 if __name__ == "__main__":
-    main()cle
+    p = load_patches(PATCH_DIR)
+    g = build_grid(p)
+    m = stitch(g)
+    cv2.imwrite("reconstructed_map.png", m)
+    answer_questions(m)
