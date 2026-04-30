@@ -39,8 +39,8 @@ def rotations(img):
 
 def get_score(img_a, img_b, direction):
     best_match = -1.0
-    # Search for the "lock" within a small range
-    for offset in range(OVERLAP - 2, OVERLAP + 3):
+    # Use a slightly wider range if the drift persists
+    for offset in range(OVERLAP - 4, OVERLAP + 5):
         if direction == "right":
             edge_a = img_a[:, -offset:]
             edge_b = img_b[:, :offset]
@@ -48,7 +48,11 @@ def get_score(img_a, img_b, direction):
             edge_a = img_a[-offset:, :]
             edge_b = img_b[:offset, :]
         
-        res = cv2.matchTemplate(edge_a, edge_b, cv2.TM_CCORR_NORMED)
+        # CCORR_NORMED is good, but adding a small blur can help with compression noise
+        edge_a_blur = cv2.GaussianBlur(edge_a, (3,3), 0)
+        edge_b_blur = cv2.GaussianBlur(edge_b, (3,3), 0)
+        
+        res = cv2.matchTemplate(edge_a_blur, edge_b_blur, cv2.TM_CCORR_NORMED)
         best_match = max(best_match, res[0][0])
     return best_match
 
