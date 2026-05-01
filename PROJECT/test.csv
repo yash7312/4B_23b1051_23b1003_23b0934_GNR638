@@ -1,4 +1,56 @@
 id,question,option_1,option_2,option_3,option_4
-ques_1,Amongst the options which major water body is visible in the map?,Vihar Lake,Powai Lake,Talao Pali Lake,Bandra Talao
-ques_2,Which Dam is shown in the north of the map?,Powai Lake Dam,Vihar Lake Dam,Morbe Dam,Owe Dam
-ques_3,Which metro is near Central Poultry Development Organisation CDPO Mumbai?,Marol Naka,Ghatkopar,Aarey,Seepz
+ques_1,Which Dam is shown in the north of the map?,Powai Lake Dam,Vihar Lake Dam,Morbe Dam,Owe Dam
+ques_2,Which metro is near Central Poultry Development Organisation CDPO Mumbai?,Marol Naka,Ghatkopar,Aarey,Seepz
+ques_3,Which institute do you see in this image?,AIIMS,Indian Institute of Technology Bombay,Indian Institute of Technology Delhi,IISc
+ques_4,Which river can be seen in the image?,Mithi river,Ganga river,Chambal river,Kosi river
+ques_5,Amongst the options which major water body is visible in the map?,Vihar Lake,Powai Lake,Talao Pali Lake,Bandra Talao
+ques_6,Which airport is visible in the bottom-left quadrant?,Chhatrapati Shivaji Maharaj International Airport,CSMI Airport International,Indira Gandhi International Airport,Rajiv Gandhi International Airport
+ques_7,What is the name of the metro depot located near JVLR?,Powai Depot,Saki Naka Depot,Aarey Metro Depot,Marol Depot
+ques_8,Which major road bounds Powai Lake to the south?,Saki Vihar Road,Adi Shankaracharya Marg,JVLR,Chandivali Farm Road
+ques_9,Which industrial zone is located directly west of Aarey Metro Depot?,SEEPZ,MIDC Andheri,Larsen & Toubro,Mittal Industrial Estate
+ques_10,Which institute is located just south of Vihar Lake Dam?,IIT Bombay,National Institute of Industrial Engineering,AIIMS,NITIE
+ques_11,Which metro station is located directly east of the Airport Road station?,Chakala,Saki Naka,Marol Naka L1,Asalpha
+ques_12,Which village is situated between Saki Vihar Road and Powai Lake?,Tunga Village,Mohili Village,Paspoli Village,Kondivita Village
+ques_13,What prominent garden is located in Powai near Central Avenue?,Nirvana Park,Hiranandani Gardens,Powai Park,Aarey Gardens
+ques_14,The Sahar Elevated Road leads directly to which location?,MIDC,SEEPZ,CSMI Airport International,IIT Bombay
+ques_15,Which village is located west of Saki Vihar Road near JVLR?,Tunga Village,Marol Village,Mohili Village,Paspoli Village
+ques_16,What industrial estate is located just south of Saki Naka?,Mittal Industrial Estate,Bindal Estate,SEEPZ,MIDC
+ques_17,Which metro station is the next stop east of Saki Naka on the map?,Marol Naka,Saki Naka,Asalpha,Chakala
+ques_18,Which road connects Saki Naka to JVLR?,Saki Vihar Road,Chandivali Farm Road,Aarey Colony Road,Marol Maroshi Road
+ques_19,Which village is located to the east of MIDC Andheri?,Kondivita Village,Marol Village,Mohili Village,Tunga Village
+ques_20,Which elevated road is shown in pink in the bottom-left corner?,Western Express Highway,Eastern Express Highway,Sahar Elevated Road,JVLR
+ques_21,What facility is visible north of JVLR and west of Saki Vihar Road?,Water Filtration Plant,Powai Lake Dam,Veravali Reservoir,Aarey Metro Depot
+ques_22,Which hill is located southeast of Chandivali?,Hanuman Tekdi,Ghatkopar Hill,Powai Hill,Aarey Hill
+ques_23,Which colony is located directly south of Model Town?,Takshila Colony,Park Site Colony,Model Town,Adivisi Gaothan
+ques_24,Which area is located to the east of Vihar Lake Dam?,Filter Pada,Peru Baug,Paspoli Village,Tunga Village
+ques_25,What chowk is located at the intersection of JVLR and Marol Maroshi Road?,Dr. Abdul Kalam Chowk,Sanvidhan Chowk,Saki Naka,Maroshi Naka
+ques_26,Which terminal is explicitly labelled at CSMI Airport?,Terminal 1,Terminal 2,Terminal 3,Terminal 4
+ques_27,What wadi is located to the east of Asalpha?,Kulkarni Wadi,Budhiya Jadhav Wadi,Asalpha,Mohili Village
+ques_28,Which nagar is located west of Saki Vihar Road and south of JVLR?,Shivaji Nagar,Bhavani Nagar,Shiv Shakti Nagar,Vijay Nagar
+ques_29,What flyover is marked on JVLR near Powai Lake?,Saki Naka Flyover,L&T Flyover,JVLR Flyover,Powai Flyover
+ques_30,Which corporate campus is located south of JVLR near the L&T Flyover?,TCS,Infosys,Larsen & Toubro,Reliance
+ques_31,What street intersects Central Avenue near Hiranandani Gardens?,Orchard Avenue,South Avenue,Main Street,Lake Road
+ques_32,Which reservoir is located in Andheri East on the left side of the map?,Powai Lake,Vihar Lake,Andheri Veravali Reservoir,Mithi River
+ques_33,Which tekdi is located in the top right corner of the map?,Ghatkopar Hill,Hanuman Tekdi,Sanjay Gandhi National Park,Aarey Colony
+ques_34,What nagar is located just south of BEST Quarry?,Sangharsh Nagar,Varsha Nagar,Shivaji Nagar,Bhavani Nagar
+ques_35,Which avenue is directly south of Cliff Avenue in the Powai area?,Orchard Avenue,Central Avenue,South Avenue,Lake Road
+ques_36,What chowk is situated near Dr. Abdul Kalam road?,Sanvidhan Chowk,Dr. Abdul Kalam Chowk,Maroshi Naka,Saki Naka
+ques_37,What transport infrastructure passes through Marol Naka and Saki Naka?,Monorail,Metro,Local Train,BRTS
+ques_38,What road runs north from Sanvidhan Chowk?,Marol Maroshi Road,JVLR,Aarey Colony Road,Saki Vihar Road
+ques_39,Which nagar is located directly south of the Airport Road metro station?,Navpada,Marol,Chakala,Asalpha
+ques_40,Which nagar is situated between Marol Pipeline Road and the Mithi River?,Shivaji Nagar,Bhavani Nagar,Vijay Nagar,Sangharsh Nagar
+ques_41,What is the name of the area near the Water Filtration Plant?,Peru Baug,Filter Pada,Adivisi Gaothan,Paspoli Village
+ques_42,What is the name of the road passing through the Chandivali area?,Saki Vihar Road,JVLR,Chandivali Farm Road,DP Road No 9
+ques_43,Which village is positioned near the western edge of the map west of MIDC?,Tunga Village,Kondivita Village,Mohili Village,Marol Village
+ques_44,What colony is located near Amrut Nagar in the bottom right?,Takshila Colony,Park Site Colony,Model Town,Aarey Colony
+ques_45,Which nagar is situated directly east of Powai?,Bhavani Nagar,Sangharsh Nagar,Varsha Nagar,Narayan Nagar
+ques_46,Which nagar is located south of Aarey Metro Depot?,Shivaji Nagar,Bhavani Nagar,Vijay Nagar,Shiv Shakti Nagar
+ques_47,What village is located south of Chandivali Farm Road?,Tunga Village,Paspoli Village,Kondivita Village,Mohili Village
+ques_48,Which road intersects with Krantiveer Lakhuji Salve Marg?,Cross Road A,Cross Road B,Cross Road C,Cross Road D
+ques_49,Which location is marked near the Chakala metro station?,J.B. Nagar,Navpada,Marol,Asalpha
+ques_50,Which river flows southwards past Saki Naka?,Ganga River,Yamuna River,Mithi River,Godavari River
+ques_51,What nagar is located directly east of Asalpha?,Sangharsh Nagar,Narayan Nagar,Varsha Nagar,Bhavani Nagar
+ques_52,What road bounds the CSMI Airport to the north?,JVLR,Sahar Elevated Road,Saki Vihar Road,Marol Pipeline Road
+ques_53,Which lake is located directly north of the National Institute of Industrial Engineering?,Powai Lake,Vihar Lake,Tulsi Lake,Upvan Lake
+ques_54,Which area is located east of Ghatkopar Hill?,Varsha Nagar,Sangharsh Nagar,Amrut Nagar,Narayan Nagar
+ques_55,What road crosses the Mithi River near Aarey Metro Depot?,Saki Vihar Road,Chandivali Farm Road,JVLR,Aarey Colony Road

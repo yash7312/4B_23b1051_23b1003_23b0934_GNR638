@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import torch
-import clip
 from PIL import Image
+from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+from qwen_vl_utils import process_vision_info
 
 # ======================
 # CONFIG
@@ -13,16 +14,23 @@ from PIL import Image
 PATCH_DIR = "patches"
 TEST_CSV = "test.csv"
 OUTPUT_CSV = "submission.csv"
-MODEL_PATH = "models"
+MODEL_PATH = "models/qwen"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 OVERLAP = 30  # Adjust based on dataset characteristics
 
 # ======================
-# LOAD CLIP (LOCAL PREFERENCE)
+# LOAD MODEL (LOCAL PREFERENCE)
 # ======================
-print("Loading CLIP...")
-model, preprocess = clip.load("ViT-B/32", device=DEVICE, download_root=MODEL_PATH)
+print("Loading Qwen2-VL weights...")
+model = Qwen2VLForConditionalGeneration.from_pretrained(
+    MODEL_PATH,
+    torch_dtype=torch.bfloat16,
+    attn_implementation="flash_attention_2", # Massively speeds up high-res processing
+    device_map="auto"
+)
 model.eval()
+
+processor = AutoProcessor.from_pretrained(MODEL_PATH)
 
 def load_patches(folder):
     patches = {}
@@ -39,8 +47,8 @@ def rotations(img):
 
 def get_score(img_a, img_b, direction):
     best_match = -1.0
-    # Use a slightly wider range if the drift persists
-    for offset in range(OVERLAP - 4, OVERLAP + 5):
+    # Search for the "lock" within a small range
+    for offset in range(OVERLAP - 2, OVERLAP + 3):
         if direction == "right":
             edge_a = img_a[:, -offset:]
             edge_b = img_b[:, :offset]
@@ -48,13 +56,41 @@ def get_score(img_a, img_b, direction):
             edge_a = img_a[-offset:, :]
             edge_b = img_b[:offset, :]
         
-        # CCORR_NORMED is good, but adding a small blur can help with compression noise
-        edge_a_blur = cv2.GaussianBlur(edge_a, (3,3), 0)
-        edge_b_blur = cv2.GaussianBlur(edge_b, (3,3), 0)
-        
-        res = cv2.matchTemplate(edge_a_blur, edge_b_blur, cv2.TM_CCORR_NORMED)
+        res = cv2.matchTemplate(edge_a, edge_b, cv2.TM_CCORR_NORMED)
         best_match = max(best_match, res[0][0])
     return best_match
+
+# def build_grid(patches):
+#     keys = list(patches.keys())
+#     size = int(np.sqrt(len(keys)))
+#     grid = [[None]*size for _ in range(size)]
+#     used = {0}
+    
+#     # patch_0.png is always top-left
+#     grid[0][0] = (0, patches[0])
+
+#     print("Stitching image...")
+#     for i in range(size):
+#         for j in range(size):
+#             if i == 0 and j == 0: continue
+
+#             best_score = -float('inf')
+#             best_choice = None
+
+#             for idx in keys:
+#                 if idx in used: continue
+#                 for rot in rotations(patches[idx]):
+#                     score = 0
+#                     if j > 0: score += get_score(grid[i][j-1][1], rot, "right")
+#                     if i > 0: score += get_score(grid[i-1][j][1], rot, "bottom")
+                    
+#                     if score > best_score:
+#                         best_score = score
+#                         best_choice = (idx, rot)
+            
+#             grid[i][j] = best_choice
+#             used.add(best_choice[0])
+#     return grid
 
 def build_grid(patches):
     keys = list(patches.keys())
@@ -66,19 +102,27 @@ def build_grid(patches):
     grid[0][0] = (0, patches[0])
 
     print("Stitching image...")
+
+    total_steps = size * size - 1  # excluding first cell
+    pbar = tqdm(total=total_steps, desc="Placing patches")
+
     for i in range(size):
         for j in range(size):
-            if i == 0 and j == 0: continue
+            if i == 0 and j == 0:
+                continue
 
             best_score = -float('inf')
             best_choice = None
 
             for idx in keys:
-                if idx in used: continue
+                if idx in used:
+                    continue
                 for rot in rotations(patches[idx]):
                     score = 0
-                    if j > 0: score += get_score(grid[i][j-1][1], rot, "right")
-                    if i > 0: score += get_score(grid[i-1][j][1], rot, "bottom")
+                    if j > 0:
+                        score += get_score(grid[i][j-1][1], rot, "right")
+                    if i > 0:
+                        score += get_score(grid[i-1][j][1], rot, "bottom")
                     
                     if score > best_score:
                         best_score = score
@@ -86,6 +130,10 @@ def build_grid(patches):
             
             grid[i][j] = best_choice
             used.add(best_choice[0])
+
+            pbar.update(1)   # ✅ update after placing each patch
+
+    pbar.close()
     return grid
 
 def stitch(grid):
@@ -111,38 +159,77 @@ def stitch(grid):
 def answer_questions(full_map):
     df = pd.read_csv(TEST_CSV)
     results = []
-    
-    # Basic Informative patches: center and 4 corners
-    h, w, _ = full_map.shape
-    views = [
-        full_map, # Global
-        full_map[h//4:3*h//4, w//4:3*w//4], # Center
-        full_map[:h//2, :w//2], # Top-Left
-        full_map[:h//2, w//2:], # Top-Right
-        full_map[h//2:, :w//2], # Bottom-Left
-        full_map[h//2:, w//2:]  # Bottom-Right
-    ]
+
+    # Convert the stitched cv2 map (BGR) to PIL (RGB)
+    full_map_rgb = cv2.cvtColor(full_map, cv2.COLOR_BGR2RGB)
+    map_image = Image.fromarray(full_map_rgb)
 
     for _, row in tqdm(df.iterrows(), total=len(df)):
         options = [row[f"option_{i}"] for i in range(1, 5)]
-        texts = clip.tokenize([f"{row['question']} {opt}" for opt in options]).to(DEVICE)
         
-        best_prob = 0
-        final_ans = 5 # Default to 'unanswered' to avoid negative marks[cite: 3]
+        # Structure the prompt exactly how Qwen expects it
+        question_text = f"""Analyze the map and answer the question.
+Question: {row['question']}
+Options:
+A. {options[0]}
+B. {options[1]}
+C. {options[2]}
+D. {options[3]}
+Answer strictly with a single letter: A, B, C, or D."""
 
-        for view in views:
-            img_input = preprocess(Image.fromarray(cv2.cvtColor(view, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(DEVICE)
-            with torch.no_grad():
-                logits, _ = model(img_input, texts)
-                probs = logits.softmax(dim=-1).cpu().numpy()[0]
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": map_image},
+                    {"type": "text", "text": question_text},
+                ],
+            }
+        ]
+
+        # Process inputs
+        text = processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        image_inputs, video_inputs = process_vision_info(messages)
+        
+        inputs = processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        ).to(DEVICE)
+
+        # Generate answer
+        with torch.no_grad():
+            generated_ids = model.generate(
+                **inputs, 
+                max_new_tokens=5, # We only need 1 letter
+                do_sample=False
+            )
             
-            if np.max(probs) > best_prob:
-                best_prob = np.max(probs)
-                if best_prob > 0.4: # Confidence Threshold
-                    final_ans = np.argmax(probs) + 1
+        generated_ids_trimmed = [
+            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        
+        response = processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0].strip().upper()
 
-        results.append({"id": row["id"], "question_num": row["id"], "option": final_ans})
-    
+        # Parse output safely
+        final_ans = 1 # Default fallback
+        if "A" in response: final_ans = 1
+        elif "B" in response: final_ans = 2
+        elif "C" in response: final_ans = 3
+        elif "D" in response: final_ans = 4
+
+        results.append({
+            "id": row["id"],
+            "option": final_ans
+        })
+
+    # Save exactly to the requested output file
     pd.DataFrame(results).to_csv(OUTPUT_CSV, index=False)
 
 if __name__ == "__main__":
