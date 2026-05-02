@@ -80,7 +80,7 @@ def get_score(idx_a, rot_idx_a, img_a, idx_b, rot_idx_b, img_b, direction):
             mse = np.mean(
                 (edge_a.astype(np.float32) - edge_b.astype(np.float32)) ** 2
             )
-            mse = mse / offset  # normalize
+            # mse = mse / offset  # normalize
             best_mse = min(best_mse, mse)
 
     score_cache[key] = best_mse
@@ -113,20 +113,22 @@ def build_grid_backtracking(patches):
                 if j > 0 and grid[i][j-1] is not None:
                     prev = grid[i][j-1]
                     mse = get_score(prev[0], prev[1], prev[2], idx, rot_idx, rot_img, "right")
-                    if mse > 25: valid = False
+                    if mse > 80:
+                        valid = False
                     total_mse += mse
 
                 if valid and i > 0 and grid[i-1][j] is not None:
                     prev = grid[i-1][j]
                     mse = get_score(prev[0], prev[1], prev[2], idx, rot_idx, rot_img, "bottom")
-                    if mse > 25: valid = False
+                    if mse > 80:
+                        valid = False
                     total_mse += mse
 
                 if valid:
                     candidates.append((total_mse, idx, rot_idx, rot_img))
 
         candidates.sort(key=lambda x: x[0])
-        return [(c[1], c[2], c[3]) for c in candidates]
+        return [(c[1], c[2], c[3]) for c in candidates[:4]]
 
     def solve(count):
         if count == size * size:
@@ -154,9 +156,9 @@ def build_grid_backtracking(patches):
     pbar.close()
     return grid
 
-# ======================
-# ROBUST STITCH (FIXED)
-# ======================
+# ==============
+# ROBUST STITCH 
+# ==============
 def stitch(grid):
     size = len(grid)
 
